@@ -6,7 +6,7 @@
 CC = gcc
 CFLAGS = -g -Wall -Wshadow -L. -llicense
 TAR = runsim testsim
-DEPS = runsim.c testsim.c license.c config.h
+DEPS = runsim.c testsim.c license.c config.h limits.h
 OBJ = runsim.o testsim.o license.o
 
 

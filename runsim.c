@@ -17,8 +17,8 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include "config.h"
+#include "limits.h"
 
-#define MAX_CANON 20
 #define SHMKEY 101107 // shared memory segment key
 #define SHMSZ sizeof(int)  // size of shared memory segment
 
@@ -30,8 +30,16 @@ union semun arg;
 char** tokenizestr(char* str);
 void docommand(char* cline);
 
+union semun {
+	int val;
+	struct semid_ds *buf;
+	unsigned short *array;
+	struct seminfo *__buf;
+};
+
+// deallocshm
 // deallocate shared memory
-void deallocshm(int shmid, int semid) {
+void deallocshm(/*int shmid, int semid*/) {
 	if (shmctl(shmid, IPC_RMID, NULL) == -1) {
 		perror("runsim: Error: shmctl");
 		exit(1);
@@ -43,9 +51,10 @@ void deallocshm(int shmid, int semid) {
 	}
 }
 
+// sighandler
 void sighandler(int signum) {
 	printf("Received signal %d, execution aborted.\n", signum);
-	deallocshm(shmid);
+	deallocshm(/*shmid, semid*/);
 	abort();
 }
 
@@ -99,7 +108,7 @@ int main(int argc, char* argv[]) {
 	// attach shmem seg to program's space
 	if ((shm = shmat(shmid, NULL, 0)) == (int*)(-1)) {
 		perror("runsim: Error: shmat");
-		deallocshm(shmid, semid);
+		deallocshm(/*shmid, semid*/);
 		exit(1);
 	}
 
@@ -109,7 +118,7 @@ int main(int argc, char* argv[]) {
 	arg.val = nlicenses;
 	if ((semctl(semid, 0, SETVAL, arg)) == -1) {
 		perror("runsim: Error: semctl");
-		deallocshm(shmid, semid);
+		deallocshm(/*shmid, semid*/);
 		exit(1);
 	}
 
@@ -156,7 +165,7 @@ int main(int argc, char* argv[]) {
 
 	// fork and exec multiple children until the specific limits
 
-	deallocshm(shmid);
+	deallocshm(/*shmid, semid*/);
 
 	/* detach shared mem seg from program space */
 	if (shmdt(shm) == -1) {
