@@ -1,6 +1,6 @@
 // Author: Lexi Anderson
 // CS 4760
-// Last modified: Oct 5, 2021
+// Last modified: Oct 9, 2021
 // runsim.c -- main program executable
 
 // runsim is invoked with the command:  runsim [-t sec] n < testing.data
@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/sem.h>
 #include <sys/shm.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -23,15 +24,21 @@
 
 extern int nlicenses;
 
-int shmid;
+int shmid, semid;
+union semun arg;
 
 char** tokenizestr(char* str);
 void docommand(char* cline);
 
 // deallocate shared memory
-void deallocshm(int id) {
-	if (shmctl(id, IPC_RMID, NULL) == -1) {
+void deallocshm(int shmid, int semid) {
+	if (shmctl(shmid, IPC_RMID, NULL) == -1) {
 		perror("runsim: Error: shmctl");
+		exit(1);
+	}
+
+	if (semctl(semid, 0, IPC_RMID) == -1) {
+		perror("runsim: Error: semctl");
 		exit(1);
 	}
 }
@@ -49,16 +56,30 @@ int main(int argc, char* argv[]) {
 	// set nlicenses
 
 /*TODO: rewrite command line args check to account for optional arg*/
-	if (argc != 2) {
+	int opt;
+	int sec = 100; // default value
+	while ((opt = getopt(argc, argv, "t:")) != -1) {
+		switch (opt) {
+			case 't':
+				sec = atoi(optarg);
+				break;
+			default:
+				perror("runsim: Error: getopt");
+				exit(1);
+		}
+	}
+
+	if (optind >= argc) {  // too few args
 		perror("runsim: Error: argc");
 		exit(1);
 	}
-	int narg = atoi(argv[1]);
+	int n = atoi(argv[optind]);
+
 	if (initlicense() != 0) {
 		perror("runsim: Error: initlicense");
 		exit(1);
 	}
-	nlicenses = narg;
+	nlicenses = n;
 
 	/* allocate shared memory */
 	int* shm;  // ptr to shared memory segment
@@ -69,14 +90,28 @@ int main(int argc, char* argv[]) {
 		exit(1);
 	}
 
+	// create semaphore
+	if ((semid = semget(IPC_PRIVATE, 1, 0777 | IPC_CREAT)) == -1) {
+		perror("runsim: Error: semget");
+		exit(1);
+	}
+
 	// attach shmem seg to program's space
 	if ((shm = shmat(shmid, NULL, 0)) == (int*)(-1)) {
 		perror("runsim: Error: shmat");
-		deallocshm(shmid);
+		deallocshm(shmid, semid);
 		exit(1);
 	}
 
 	*shm = nlicenses;
+
+	// initialize semaphore
+	arg.val = nlicenses;
+	if ((semctl(semid, 0, SETVAL, arg)) == -1) {
+		perror("runsim: Error: semctl");
+		deallocshm(shmid, semid);
+		exit(1);
+	}
 
 	/* main loop */
 
