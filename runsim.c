@@ -58,33 +58,53 @@ void deallocshm(/*int shmid, int semid*/) {
 
 // sighandler
 void sighandler(int signum) {
+	signal(SIGTERM, sighandler);
+
 	// get current time
 	time_t now;
 	time(&now);
 	char* time = ctime(&now); // time string
 
-	if (signum == SIGALRM) {
-		printf("\nProgram runsim timed out at %s", time);
-	} else if (signum == SIGINT) {
-		printf("\nReceived signal %d, execution aborted.\n", signum);
-	}
-
-/*TODO print time of termination to log file*/
+	// print termination time to logfile
 	char logstr[128];
 	snprintf(logstr, 128, "Program terminated at %s", time);
 	logmsg(logstr);
 
+	// get pgid
+	pid_t pgid;
+	if ((pgid = getpgid((pid_t)0)) == -1) {
+		perror("runsim: Error: getpgid");
+		exit(1);
+	}
+//	printf("Got id for process group %ld\n", (long)pgid);
+
+	switch (signum) {
+		case SIGALRM:
+			printf("\nProgram runsim timed out at %s", time);
+			break;
+		case SIGINT:
+			printf("\nReceived signal %d, execution aborted.\n", signum);
+			break;
+		case SIGTERM: ; // kill children
+			pid_t pid = getpid();
+			if (pid != pgid) exit(0);
+	}
+
 /*TODO kill all child processes*/
+	// call killpg
+	if (killpg(pgid, SIGTERM) == -1) {
+		perror("runsim: Error: killpg");
+		exit(1);
+	}
+/*XXX test comment*/
+	printf("Successfully killed all child processes in group %ld", (long)pgid);
+
 	deallocshm(/*shmid, semid*/);
 	abort();
-
 }
 
 
 /* main function */
-
-/*TODO set up timeout signal for runsim*/
-/*TODO handle SIGINT*/
 
 int main(int argc, char* argv[]) {
 	signal(SIGINT, sighandler);
