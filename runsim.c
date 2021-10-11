@@ -53,7 +53,8 @@ void deallocshm(/*int shmid, int semid*/) {
 		exit(1);
 	}
 
-	if (semctl(semid, 0, IPC_RMID) == -1) {
+/*TODO semaphore cleanup not working*/
+	if (semctl(semid, 1, IPC_RMID, 0) == -1) {
 		perror("runsim: Error: semctl");
 		exit(1);
 	}
