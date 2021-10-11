@@ -1,6 +1,6 @@
 // Author: Lexi Anderson
 // CS 4270
-// Last modified: Oct 4, 2021
+// Last modified: Oct 11, 2021
 // testsim.c -- application program
 
 #include <inttypes.h>
@@ -34,6 +34,7 @@ int main(int argc, char* argv[]) {
 		char msgstr[400];
 		sprintf(msgstr, "%.24s\t %ld\t %d of %d\n", time, (intmax_t)pid, i + 1, repeat);
 
+/*XXX*/		puts(msgstr);
 		logmsg(msgstr);
 	}
 

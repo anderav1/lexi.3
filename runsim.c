@@ -28,6 +28,9 @@ extern int nlicenses;
 
 int shmid, semid;
 union semun arg;
+pid_t ppid;
+
+volatile sig_atomic_t got_interrupt = 0;
 
 char** tokenizestr(char* str);
 void docommand(char* cline);
@@ -76,19 +79,22 @@ void sighandler(int signum) {
 		perror("runsim: Error: getpgid");
 		exit(1);
 	}
-//	printf("Got id for process group %ld\n", (long)pgid);
 
 	switch (signum) {
 		case SIGALRM:
 			printf("\nProgram runsim timed out at %s", time);
+			got_interrupt = 1;
 			break;
 		case SIGINT:
 			printf("\nReceived signal %d, execution aborted.\n", signum);
 			break;
 		case SIGTERM: ; // kill children
-			pid_t pid = getpid();
-			if (pid != pgid) exit(0);
+//			pid_t pid = getpid();
+//			if (pid != pgid) exit(0);
+			exit(0);
 	}
+
+	if (getpid() == ppid) deallocshm();
 
 /*TODO kill all child processes*/
 	// call killpg
@@ -99,7 +105,7 @@ void sighandler(int signum) {
 /*XXX test comment*/
 	printf("Successfully killed all child processes in group %ld", (long)pgid);
 
-	deallocshm(/*shmid, semid*/);
+//	deallocshm(/*shmid, semid*/);
 	abort();
 }
 
@@ -111,31 +117,31 @@ int main(int argc, char* argv[]) {
 	signal(SIGALRM, sighandler);
 
 	int* shm;  // ptr to shared memory segment
+	ppid = getpid();
 
-	while (1) {
-		int opt;
-		int sec = 100; // default value
-		while ((opt = getopt(argc, argv, "t:")) != -1) {
-			switch (opt) {
-				case 't':
-					sec = atoi(optarg);
-					break;
-				default:
-					perror("runsim: Error: getopt");
-					exit(1);
-			}
+	int opt;
+	int sec = 100; // default value
+	while ((opt = getopt(argc, argv, "t:")) != -1) {
+		switch (opt) {
+			case 't':
+				sec = atoi(optarg);
+				break;
+			default:
+				perror("runsim: Error: getopt");
+				exit(1);
 		}
+	}
 
-		// start timer once sec value is set
-		alarm(sec);
+	// start timer once sec value is set
+	alarm(sec);
 
+	while (!got_interrupt) {
 		if (optind >= argc) {  // too few args
 			perror("runsim: Error: argc");
 			exit(1);
 		}
 		int narg = atoi(argv[optind]);
 		int n = (narg < 20) ? narg : 20; // max num of procs is 20
-		printf("Num of processes is set to %d", n);
 
 		if (initlicense() != 0) {
 			perror("runsim: Error: initlicense");
@@ -182,7 +188,7 @@ int main(int argc, char* argv[]) {
 		// read in one line at a time until EOF
 		while (fgets(inputBuffer, MAX_CANON, stdin) != NULL) {
 			// request a license
-			//getlicense();
+			getlicense();
 
 			// get semaphore
 			if (semop(semid, &p, 1) == -1) {
@@ -258,6 +264,13 @@ int main(int argc, char* argv[]) {
 	}
 
 	deallocshm(/*shmid, semid*/);
+
+	if (got_interrupt) {
+		if (killpg(getpgid(ppid), SIGTERM)) {
+			perror("runsim: Error: killgp");
+			exit(1);
+		}
+	}
 
 	/* detach shared mem seg from program space */
 	if (shmdt(shm) == -1) {
