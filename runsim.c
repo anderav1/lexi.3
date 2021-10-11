@@ -63,9 +63,7 @@ void sighandler(int signum) {
 /* main function */
 
 int main(int argc, char* argv[]) {
-	// set nlicenses
 
-/*TODO: rewrite command line args check to account for optional arg*/
 	int opt;
 	int sec = 100; // default value
 	while ((opt = getopt(argc, argv, "t:")) != -1) {
@@ -85,8 +83,6 @@ int main(int argc, char* argv[]) {
 	}
 	int narg = atoi(argv[optind]);
 	int n = (narg < 20) ? narg : 20; // max num of procs is 20
-/*TEST*/
-	printf("Number of processes is %d", n);
 
 	if (initlicense() != 0) {
 		perror("runsim: Error: initlicense");
