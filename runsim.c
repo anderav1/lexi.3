@@ -3,9 +3,10 @@
 // Last modified: Oct 9, 2021
 // runsim.c -- main program executable
 
-// runsim is invoked with the command:  runsim [-t sec] n < testing.data
-	// n -- number of licenses
-	// sec -- how long to run
+/* runsim is invoked with the command:  runsim [-t sec] n < testing.data
+	n -- number of licenses
+	sec -- how long to run
+*/
 
 
 #include <signal.h>
@@ -82,7 +83,10 @@ int main(int argc, char* argv[]) {
 		perror("runsim: Error: argc");
 		exit(1);
 	}
-	int n = atoi(argv[optind]);
+	int narg = atoi(argv[optind]);
+	int n = (narg < 20) ? narg : 20; // max num of procs is 20
+/*TEST*/
+	printf("Number of processes is %d", n);
 
 	if (initlicense() != 0) {
 		perror("runsim: Error: initlicense");
