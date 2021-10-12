@@ -1,6 +1,6 @@
 // Author: Lexi Anderson
 // CS 4760
-// Last modified: Oct 9, 2021
+// Last modified: Oct 12, 2021
 // runsim.c -- main program executable
 
 /* runsim is invoked with the command:  runsim [-t sec] n < testing.data
@@ -22,6 +22,7 @@
 #include "limits.h"
 
 #define SHMKEY 101107 // shared memory segment key
+#define SEMKEY 193578  // semaphore key
 #define SHMSZ sizeof(int)  // size of shared memory segment
 
 extern int nlicenses;
@@ -39,7 +40,7 @@ union semun {
 	int val;
 	struct semid_ds *buf;
 	unsigned short *array;
-	struct seminfo *__buf;
+//	struct seminfo *__buf;
 };
 
 struct sembuf p = { 0, -1, SEM_UNDO };
@@ -159,7 +160,7 @@ int main(int argc, char* argv[]) {
 		}
 
 		// create semaphore
-		if ((semid = semget(IPC_PRIVATE, 1, 0777 | IPC_CREAT)) == -1) {
+		if ((semid = semget(SEMKEY, 1, 0777 | IPC_CREAT)) == -1) {
 			perror("runsim: Error: semget");
 			exit(1);
 		}
