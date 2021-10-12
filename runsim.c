@@ -128,7 +128,9 @@ int main(int argc, char* argv[]) {
 			perror("runsim: Error: initlicense");
 			exit(1);
 		}
-		nlicenses = n;
+
+		addtolicenses(n);
+//		nlicenses = n;
 
 		/* allocate shared memory */
 
@@ -154,9 +156,9 @@ int main(int argc, char* argv[]) {
 		*shm = nlicenses;
 
 		// initialize semaphore
-		arg.val = nlicenses;
+//		arg.val = nlicenses;
 /*XXX test value*/
-//		arg.val = 1;
+		arg.val = 1;
 		if ((semctl(semid, 0, SETVAL, arg)) == -1) {
 			perror("runsim: Error: semctl setval");
 			deallocshm();
@@ -170,10 +172,6 @@ int main(int argc, char* argv[]) {
 		char inputBuffer[MAX_CANON];
 		// read in one line at a time until EOF
 		while (fgets(inputBuffer, MAX_CANON, stdin) != NULL) {
-			// request a license
-			getlicense();
-
-//TODO	get semaphore??
 
 			// fork child process that calls docommand
 			pid = fork();
@@ -185,7 +183,9 @@ int main(int argc, char* argv[]) {
 
 					// get semaphore and exec
 					if (getsem() == 0) {
+/*XXX test*/					getlicense();
 						docommand(inputBuffer);
+						returnlicense();
 					} else {
 						perror("runsim: Error: getsem");
 						exit(1);
@@ -227,7 +227,6 @@ int main(int argc, char* argv[]) {
 					break;
 			}
 
-//TODO release semaphore??
 		}
 
 		// at EOF, wait for all children to finish
