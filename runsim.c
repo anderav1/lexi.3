@@ -46,22 +46,21 @@ union semun {
 struct sembuf p = { 0, -1, SEM_UNDO };
 struct sembuf v = { 0, +1, SEM_UNDO };
 
-// deallocshm
+// function: deallocshm
 // deallocate shared memory
 void deallocshm(/*int shmid, int semid*/) {
 	if (shmctl(shmid, IPC_RMID, NULL) == -1) {
-		perror("runsim: Error: shmctl");
+		perror("runsim: Error: shmctl rmid");
 		exit(1);
 	}
 
-/*TODO semaphore cleanup not working*/
 	if (semctl(semid, 1, IPC_RMID, 0) == -1) {
-		perror("runsim: Error: semctl");
+		perror("runsim: Error: semctl rmid");
 		exit(1);
 	}
 }
 
-// sighandler
+// function: sighandler
 void sighandler(int signum) {
 	signal(SIGTERM, sighandler);
 
@@ -92,22 +91,19 @@ void sighandler(int signum) {
 			break;
 		case SIGTERM: ; // kill children
 //			pid_t pid = getpid();
-//			if (pid != pgid) exit(0);
+/*XXX test comment*/
+			puts("Killed process successfully");
 			exit(0);
 	}
 
 	if (getpid() == ppid) deallocshm();
 
-/*TODO kill all child processes*/
-	// call killpg
+/*TODO test killing all child processes*/
 	if (killpg(pgid, SIGTERM) == -1) {
 		perror("runsim: Error: killpg");
 		exit(1);
 	}
-/*XXX test comment*/
-	printf("Successfully killed all child processes in group %ld", (long)pgid);
 
-//	deallocshm(/*shmid, semid*/);
 	abort();
 }
 
@@ -143,7 +139,12 @@ int main(int argc, char* argv[]) {
 			exit(1);
 		}
 		int narg = atoi(argv[optind]);
-		int n = (narg < 20) ? narg : 20; // max num of procs is 20
+		int n;
+		if (narg > 20) {
+/*TODO statement printing multiple times*/
+			if (getpid() == ppid) puts("Number of processes capped at 20");
+			n = 20;
+		} else n = narg;
 
 		if (initlicense() != 0) {
 			perror("runsim: Error: initlicense");
@@ -168,7 +169,7 @@ int main(int argc, char* argv[]) {
 		// attach shmem seg to program's space
 		if ((shm = shmat(shmid, NULL, 0)) == (int*)(-1)) {
 			perror("runsim: Error: shmat");
-			deallocshm(/*shmid, semid*/);
+			deallocshm();
 			exit(1);
 		}
 
@@ -177,8 +178,8 @@ int main(int argc, char* argv[]) {
 		// initialize semaphore
 		arg.val = nlicenses;
 		if ((semctl(semid, 0, SETVAL, arg)) == -1) {
-			perror("runsim: Error: semctl");
-			deallocshm(/*shmid, semid*/);
+			perror("runsim: Error: semctl setval");
+			deallocshm();
 			exit(1);
 		}
 
@@ -265,7 +266,7 @@ int main(int argc, char* argv[]) {
 		}
 	}
 
-	deallocshm(/*shmid, semid*/);
+	deallocshm();
 
 	if (got_interrupt) {
 		if (killpg(getpgid(ppid), SIGTERM)) {
@@ -282,6 +283,8 @@ int main(int argc, char* argv[]) {
 	return(0);
 }
 
+// function: tokenizestr
+// split the string into an array of tokens
 char** tokenizestr(char* str) {
 	int sz = 3;
 	char** tokenarr = (char**)malloc(sizeof(char*)*sz);
@@ -298,6 +301,8 @@ char** tokenizestr(char* str) {
 	return tokenarr;
 }
 
+// function: docommand
+// execute the command specified by string cline
 void docommand(char* cline) {
 	// request license
 	getlicense();
