@@ -1,6 +1,6 @@
 // Author: Lexi Anderson
 // CS 4760
-// Last modified: Oct 4, 2021
+// Last modified: Oct 12, 2021
 // license.c
 
 #include <stdlib.h>
@@ -32,7 +32,10 @@ int returnlicense() {
 // Performs initialization of the license obj
 // Returns 0 upon success
 int initlicense() {
-	// create logfile
+	FILE* fp;
+	fp = fopen("logfile", "w");  // create logfile
+	fclose(fp);
+
 	/*FILE* fp;
 	fp = fopen("logfile", "w");  // create file
 	while (flock(fileno(fp), LOCK_EX) != 0);  // lock file to other processes

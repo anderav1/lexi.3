@@ -35,12 +35,13 @@ volatile sig_atomic_t got_interrupt = 0;
 
 char** tokenizestr(char* str);
 void docommand(char* cline);
+int getsem(void);
+int releasesem(void);
 
 union semun {
 	int val;
 	struct semid_ds *buf;
 	unsigned short *array;
-//	struct seminfo *__buf;
 };
 
 // function: deallocshm
@@ -59,8 +60,6 @@ void deallocshm() {
 
 // function: sighandler
 void sighandler(int signum) {
-	signal(SIGTERM, sighandler);
-//	signal(signum, sighandler);
 
 	// get current time
 	time_t now;
@@ -74,13 +73,6 @@ void sighandler(int signum) {
 
 	if (getpid() == ppid) deallocshm();
 
-	// get pgid
-	pid_t pgid;
-	if ((pgid = getpgid((pid_t)0)) == -1) {
-		perror("runsim: Error: getpgid");
-		exit(1);
-	}
-
 	switch (signum) {
 		case SIGALRM:
 			printf("\nProgram runsim timed out at %s", time);
@@ -88,26 +80,9 @@ void sighandler(int signum) {
 			break;
 		case SIGINT:
 			printf("\nReceived signal %d, execution aborted.\n", signum);
-			break;
-		case SIGTERM: ; // kill children
-//			pid_t pid = getpid();
-//			if (pid != ppid) kill(pid, SIGKILL);
-//			else puts("Parent waiting for children to be killed");
-/*XXX test comment*/
-//			puts("Killed process successfully");
-			exit(0);
 	}
 
-/*TODO test killing all child processes*/
-/*	if (killpg(pgid, SIGTERM) == -1) {
-		perror("runsim: Error: killpg");
-		exit(1);
-	}
-*/
 	kill(0, SIGKILL);
-
-//	abort();
-	exit(0);
 }
 
 
@@ -144,7 +119,7 @@ int main(int argc, char* argv[]) {
 		int narg = atoi(argv[optind]);
 		int n;
 		if (narg > 20) {
-/*TODO statement printing multiple times*/
+/*TODO statement printing multiple times throughout program*/
 			if (getpid() == ppid) puts("Number of processes capped at 20");
 			n = 20;
 		} else n = narg;
@@ -179,9 +154,9 @@ int main(int argc, char* argv[]) {
 		*shm = nlicenses;
 
 		// initialize semaphore
-//		arg.val = nlicenses;
+		arg.val = nlicenses;
 /*XXX test value*/
-		arg.val = 1;
+//		arg.val = 1;
 		if ((semctl(semid, 0, SETVAL, arg)) == -1) {
 			perror("runsim: Error: semctl setval");
 			deallocshm();
@@ -198,12 +173,7 @@ int main(int argc, char* argv[]) {
 			// request a license
 			getlicense();
 
-//			// get semaphore
-//			if (semop(semid, &p, 1) == -1) {
-//				perror("runsim: Error: semop p");
-//				deallocshm();
-//				exit(1);
-//			}
+//TODO	get semaphore??
 
 			// fork child process that calls docommand
 			pid = fork();
@@ -213,8 +183,7 @@ int main(int argc, char* argv[]) {
 					exit(1);
 				case 0:  // child
 
-					// get semaphore
-					// must acquire semaphore before exec
+					// get semaphore and exec
 					if (getsem() == 0) {
 						docommand(inputBuffer);
 					} else {
@@ -222,17 +191,8 @@ int main(int argc, char* argv[]) {
 						exit(1);
 					}
 
-/*					// get semaphore
-					if (semop(semid, &p, 1) == -1) {
-						perror("runsim: Error: semop p");
-						exit(1);
-					}
-
-					docommand(inputBuffer);
-
-*/					// release semaphore
+					// release semaphore
 					if (releasesem() == -1) {
-//					if (semop(semid, v, 1) == -1) {
 						perror("runsim: Error: semop v");
 						exit(1);
 					}
@@ -242,7 +202,6 @@ int main(int argc, char* argv[]) {
 
 					// get semaphore
 					if (getsem() == -1) {
-//					if (semop(semid, p, 1) == -1) {
 						perror("runsim: Error: semop p");
 						deallocshm();
 						exit(1);
@@ -260,7 +219,6 @@ int main(int argc, char* argv[]) {
 
 					// release semaphore
 					if (releasesem() == -1) {
-//					if (semop(semid, v, 1) == -1) {
 						perror("runsim: Error: semop v");
 						deallocshm();
 						exit(1);
@@ -269,12 +227,7 @@ int main(int argc, char* argv[]) {
 					break;
 			}
 
-//			// release semaphore
-//			if (semop(semid, &v, 1) == -1) {
-//				perror("runsim: Error: semop v");
-//				deallocshm();
-//				exit(1);
-//			}
+//TODO release semaphore??
 		}
 
 		// at EOF, wait for all children to finish
@@ -332,14 +285,14 @@ void docommand(char* cline) {
 	free(argv);
 }
 
+// function: getsem
+// access the semaphore
 int getsem() {
 	int ret;
 	struct sembuf ops[1];
 	ops[0].sem_num = 0;  // index of the sem in the sem array
 	ops[0].sem_op = -1;
 	ops[0].sem_flg = SEM_UNDO;
-
-// ret = semop(semid, &p, 1)
 
 	if ((ret = semop(semid, ops, 1)) == -1) {
 		perror("runsim: Error: getsem semop");
@@ -349,14 +302,14 @@ int getsem() {
 	return ret;
 }
 
+// function: releasesem
+// release the semaphore
 int releasesem() {
 	int ret;
 	struct sembuf ops[1];
 	ops[0].sem_num = 0;
 	ops[0].sem_op = 1;
 	ops[0].sem_flg = SEM_UNDO;
-
-// ret = semop(semid, &v, 1);
 
 	if ((ret = semop(semid, ops, 1)) == -1) {
 		perror("runsim: Error: releasesem semop");
